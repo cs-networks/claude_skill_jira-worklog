@@ -18,9 +18,26 @@ JIRA_API_TOKEN
 1. Extract issue key (e.g. SUP-123)
 2. Extract time (explicit or natural language)
 3. Confirm action
-4. Run:
+4. Run the appropriate command (see examples below)
 
+## Start-time logic
+
+- **Full day / no start time mentioned**: use `--start 08:00 --hours 8`
+- **Specific duration, no explicit start**: omit `--start` — the script auto-computes start = (current time rounded up to next quarter hour) − duration
+- **Explicit start time given by user**: pass `--start HH:MM`
+
+## Examples
+
+```bash
+# "I worked on SUP-123 the whole day"
+python worklog.py --issue SUP-123 --hours 8 --start 08:00 --comment "Feature work"
+
+# "I spent 2.5 hours on SUP-123" (auto-computes start from now)
 python worklog.py --issue SUP-123 --hours 2.5 --comment "Refactored auth middleware"
+
+# "I worked on SUP-123 from 10:00 for 3 hours"
+python worklog.py --issue SUP-123 --hours 3 --start 10:00 --comment "Code review"
+```
 
 ## Notes
 

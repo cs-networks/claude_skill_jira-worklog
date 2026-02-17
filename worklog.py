@@ -6,7 +6,7 @@ import argparse
 import base64
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
@@ -24,6 +24,30 @@ def get_auth_header(email: str, token: str) -> str:
     return "Basic " + base64.b64encode(raw).decode("ascii")
 
 
+def ceil_to_quarter(dt: datetime) -> datetime:
+    """Round a datetime UP to the next quarter hour."""
+    minutes = dt.minute
+    remainder = minutes % 15
+    if remainder == 0 and dt.second == 0 and dt.microsecond == 0:
+        return dt
+    add = 15 - remainder
+    return dt.replace(second=0, microsecond=0) + timedelta(minutes=add)
+
+
+def compute_started(hours: float, start_time: Optional[str]) -> datetime:
+    """Compute the worklog start datetime.
+
+    If *start_time* is given (HH:MM), use today at that time.
+    Otherwise, end = now rounded up to the next quarter hour, start = end − hours.
+    """
+    now = datetime.now(timezone.utc)
+    if start_time:
+        h, m = (int(x) for x in start_time.split(":"))
+        return now.replace(hour=h, minute=m, second=0, microsecond=0)
+    end = ceil_to_quarter(now)
+    return end - timedelta(hours=hours)
+
+
 def add_worklog(
     base_url: str,
     auth_header: str,
@@ -31,12 +55,14 @@ def add_worklog(
     hours: float,
     comment: Optional[str],
     adjust_estimate: Optional[str] = None,
+    start_time: Optional[str] = None,
 ):
     seconds = int(hours * 3600)
+    started = compute_started(hours, start_time)
 
     payload = {
         "timeSpentSeconds": seconds,
-        "started": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000+0000"),
+        "started": started.strftime("%Y-%m-%dT%H:%M:%S.000+0000"),
     }
 
     if comment:
@@ -79,6 +105,7 @@ def main():
     parser.add_argument("--hours", required=True, type=float)
     parser.add_argument("--comment", default="")
     parser.add_argument("--adjust", choices=["new", "leave", "manual"])
+    parser.add_argument("--start", help="Start time as HH:MM (e.g. 08:00)")
 
     args = parser.parse_args()
 
@@ -95,6 +122,7 @@ def main():
         hours=args.hours,
         comment=args.comment,
         adjust_estimate=args.adjust,
+        start_time=args.start,
     )
 
     print("Worklog created successfully.")
